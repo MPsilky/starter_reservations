@@ -47,8 +47,6 @@
   },
   "keywords": [],
   "author": "Thinkful, Inc.",
-  "license": "UNLICENSED",
-  "devDependencies": {
-    "jest": "^29.7.0"
+  "license": "UNLICENSED"
   }
 }
