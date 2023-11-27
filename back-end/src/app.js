@@ -16,10 +16,17 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.options("*", cors());
+const router = express.Router();
+router.get("/", cors(), (req, res) => {
+  res.json({
+    message: "Welcome! You can access the data using these routes:",
+  });
+});
 
-app.use("/tables", tablesRouter);
+app.use("/", router);
+
 app.use("/reservations", reservationsRouter);
+app.use("/tables", tablesRouter);
 
 app.use(notFound);
 app.use(errorHandler);
