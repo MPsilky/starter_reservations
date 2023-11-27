@@ -9,6 +9,6 @@ test("renders title", () => {
       <App />
     </Router>
   );
-  const restaurant = screen.getByText(/periodic tables/i);
-  expect(restaurant).toBeInTheDocument();
+  const titles = screen.getAllByText(/periodic tables/i);
+  expect(titles.length).toBeGreaterThan(0);
 });
