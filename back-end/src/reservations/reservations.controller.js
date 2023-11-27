@@ -60,41 +60,38 @@ function validDateTime(req, res, next) {
   const reservation = new Date(`${reservation_date}T${reservation_time}Z`);
   const now = new Date();
   const [hour, minute] = reservation_time.split(":");
+
   if (reservation_date === "not-a-date") {
-    next({
+    return next({
       status: 400,
       message: `reservation_date is not a valid date.`,
     });
   }
   if (reservation_time === "not-a-time") {
-    next({
+    return next({
       status: 400,
       message: `reservation_time is not a valid time.`,
     });
   }
   if (reservation.getUTCDay() === 2) {
-    next({
+    return next({
       status: 400,
       message: "The restaurant is closed on Tuesdays.",
     });
   }
   if (reservation < now) {
-    next({
+    return next({
       status: 400,
       message: "Reservation must be made at a future date/time.",
     });
   }
-  if (
-    hour < 10 ||
-    hour > 21 ||
-    (hour == 10 && minute < 30) ||
-    (hour == 21 && minute > 30)
-  )
-    next({
+  if (hour < 10 || hour > 21 || (hour == 10 && minute < 30) || (hour == 21 && minute > 30)) {
+    return next({
       status: 400,
       message: `Your reservation time must be between 10:30 AM and 9:30 PM`,
     });
-  next();
+  }
+  return next();
 }
 
 function validPeople(req, res, next) {
