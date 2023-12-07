@@ -2,48 +2,60 @@ const knex = require("../db/connection");
 
 const tableName = "reservations";
 
-function list(date) {
-  return knex(tableName)
-    .select("*")
-    .where({ reservation_date: date })
-    .whereNot({ status: "finished" })
-    .orderBy("reservation_time");
-}
 
-function read(reservation_id) {
-  return knex(tableName).where({ reservation_id }).first();
-}
-
+/** creates a new reservation (row) */
 function create(reservation) {
   return knex(tableName)
     .insert(reservation)
-    .returning("*")
-    .then((created) => created[0]);
+    .returning("*");
 }
 
-function search(mobile_number) {
+/** reads the data (row) with the given 'reservation_id'. */
+function read(reservation_id) {
   return knex(tableName)
-    .whereRaw("translate(mobile_number, '() -', '') like ?", `%${mobile_number.replace(/\D/g, "")}%`)
-    .orderBy("reservation_date");
+    .select("*")
+    .where({ reservation_id: reservation_id })
+    .first();
 }
 
-function update(reservation) {
+/** updates reservation with the given reservation_id. */
+function update(reservation_id, status) {
   return knex(tableName)
-    .where({ reservation_id: reservation.reservation_id })
-    .update(reservation, "*");
+    .where({ reservation_id: reservation_id })
+    .update({ status: status });
 }
 
-function changeStatus(reservation) {
+/** edits reservation with the given reservation_id. */
+function edit(reservation_id, reservation) {
   return knex(tableName)
-    .where({ reservation_id: reservation.reservation_id })
-    .update({ status: reservation.status }, "*");
+    .where({ reservation_id: reservation_id })
+    .update({ ...reservation })
+    .returning("*");
+}
+
+/** lists all reservations with the given date or mobile number. */
+function list(date, mobile_number) {
+  if (date) {
+    return knex(tableName)
+      .select("*")
+      .where({ reservation_date: date })
+      .orderBy("reservation_time", "asc");
+  }
+
+  if (mobile_number) {
+    return knex(tableName)
+      .select("*")
+      .where("mobile_number", "like", `${mobile_number}%`);
+  }
+
+  return knex(tableName)
+    .select("*");
 }
 
 module.exports = {
-  create,
   list,
+  create,
   read,
   update,
-  changeStatus,
-  search,
+  edit,
 };

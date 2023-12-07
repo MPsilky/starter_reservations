@@ -1,159 +1,216 @@
 const service = require("./tables.service");
-const reservationsService = require("../reservations/reservations.service");
 const asyncErrorBoundary = require("../errors/asyncErrorBoundary");
-const hasProperties = require("../errors/hasProperties");
 
-async function list(req, res) {
-  const data = await service.list();
-  res.status(200).json({ data });
+
+///// VALIDATORS /////
+
+/**
+ * checks for a data object in the request
+ */
+async function validateData(request, response, next) {
+  if (!request.body.data) {
+    return next({ status: 400, message: "Body must include a data object" });
+  }
+
+  next();
 }
 
-async function read(req, res) {
-  const data = res.locals.table;
-  res.status(200).json({ data });
-}
+/**
+ * checks for required information in request body
+ */
+async function validateBody(request, response, next) {
+  if (!request.body.data.table_name || request.body.data.table_name === "") {
+    return next({ status: 400, message: "'table_name' field cannot be empty" });
+  }
 
-async function create(req, res) {
-  const { data: newData = {} } = req.body;
-  const data = await service.create(newData);
-  res.status(201).json({ data });
-}
-
-async function update(req, res) {
-  const { table, reservation } = res.locals;
-  table.reservation_id = reservation.reservation_id;
-  table.status = "occupied";
-  reservation.status = "seated";
-
-  const updatedTable = await service.update(table);
-  const updatedReservation = await reservationsService.update(reservation, table)
-  res.json({data: [updatedTable, updatedReservation]});
-}
-
-async function destroy(req, res) {
-  const { table } = res.locals;
-  const reservation = await reservationsService.read(table.reservation_id);
-  table.reservation_id = null;
-  table.status = "free";
-  reservation.status = "finished";
-
-  const finishedTable = await service.update(table);
-  const finishedReservation = await reservationsService.update(reservation, table);
-
-  res.status(200).json({ data: [finishedReservation, finishedTable] });
-}
-
-//Validation Middleware
-async function tableExists(req, res, next) {
-  const { table_id } = req.params;
-  const found = await service.read(table_id);
-  if (!found) {
+  if (request.body.data.table_name.length < 2) {
     return next({
-      status: 404,
-      message: `Table number ${table_id} does not exist`,
+      status: 400,
+      message: "'table_name' field must be at least 2 characters",
     });
   }
-  res.locals.table = found;
+
+  if (!request.body.data.capacity || request.body.data.capacity === "") {
+    return next({ status: 400, message: "'capacity' field cannot be empty" });
+  }
+
+  if (typeof request.body.data.capacity !== "number") {
+    return next({ status: 400, message: "'capacity' field must be a number" });
+  }
+
+  if (request.body.data.capacity < 1) {
+    return next({
+      status: 400,
+      message: "'capacity' field must be at least 1",
+    });
+  }
+
   next();
 }
 
-async function reservationExists(req, res, next) {
-  const { reservation_id } = req.body.data;
-  const found = await reservationsService.read(reservation_id);
-  if(!found) {
+
+/**
+ * checks that the reservation_id exists
+ */
+ async function validateReservationId(request, response, next) {
+  const { reservation_id } = request.body.data;
+
+  if (!reservation_id) {
+    return next({
+      status: 400,
+      message: `reservation_id field must be included in the body`,
+    });
+  }
+
+  const reservation = await service.readReservation(Number(reservation_id));
+
+  if (!reservation) {
     return next({
       status: 404,
-      message: `Reservation ${reservation_id} does not exist`
-    })
+      message: `reservation_id ${reservation_id} does not exist`,
+    });
   }
-  res.locals.reservation = found;
+
+  response.locals.reservation = reservation;
+
   next();
 }
 
-async function validTableName(req, res, next) {
-  const { table_name } = req.body.data;
-  if(table_name.length <= 1){
-    next({
-      status: 400,
-      message: `table_name is invalid. Table name must be longer than 1 character`
-    })
+
+/**
+ * checks if the given table id exists
+ */
+ async function validateTableId(request, response, next) {
+  const { table_id } = request.params;
+  const table = await service.read(table_id);
+
+  if (!table) {
+    return next({
+      status: 404,
+      message: `table id ${table_id} does not exist`,
+    });
   }
+
+  response.locals.table = table;
+
   next();
 }
 
-async function validCapacity(req, res, next){
-  const { capacity } = req.body.data;
-  if(capacity <= 0 || typeof capacity !== "number"){
-    next({
-      status: 400,
-      message: `capacity must be a number greater than 0.`
-    })
+/** makes sure that a table status is set to occupied before seating the table */
+async function validateSeatedTable(request, response, next) {
+  if (response.locals.table.status !== "occupied") {
+    return next({ status: 400, message: "this table is not occupied" });
   }
+
   next();
 }
 
-async function isSeated(req, res, next) {
-  if(res.locals.reservation.status === "seated"){
-    next({
+
+/**
+ * checks if table status and capacity are valid for the reservation to be seated
+ */
+ async function validateSeat(request, response, next) {
+  if (response.locals.table.status === "occupied") {
+    return next({
       status: 400,
-      message: "Reservation is already seated"
-    })
+      message: "the table you selected is currently occupied",
+    });
   }
+
+  if (response.locals.reservation.status === "seated") {
+    return next({
+      status: 400,
+      message: "the reservation you selected is already seated",
+    });
+  }
+
+  if (response.locals.table.capacity < response.locals.reservation.people) {
+    return next({
+      status: 400,
+      message: `the table you selected does not have enough capacity to seat ${response.locals.reservation.people} people`,
+    });
+  }
+
   next();
 }
 
-async function isOccupied(req, res, next){
-  if(res.locals.table.reservation_id){
-    next({
-      status: 400,
-      message: "Table is occupied."
-    })
+
+///// HANDLERS /////
+
+
+/**
+ * creates a table.
+ */
+async function create(request, response) {
+  if (request.body.data.reservation_id) {
+    request.body.data.status = "occupied";
+    await service.updateReservation(request.body.data.reservation_id, "seated");
+  } else {
+    request.body.data.status = "free";
   }
-  next();
+
+  const res = await service.create(request.body.data);
+
+  response.status(201).json({ data: res[0] });
 }
 
-async function isNotOccupied(req, res, next){
-  if(!res.locals.table.reservation_id){
-    next({
-      status: 400,
-      message: "Table is not occupied."
-    })
-  }
-  next();
+
+/**
+ * lists all tables on the dashboard
+ */
+async function list(request, response) {
+  let res = await service.list();
+  // Sorting the result by table_name
+  res = res.sort((a, b) => a.table_name.localeCompare(b.table_name));
+  response.json({ data: res });
 }
 
-async function validSeating(req, res, next){
-  if(res.locals.reservation.people > res.locals.table.capacity){
-    next({
-      status: 400,
-      message: "Table capacity cannot fit this party."
-    })
-  }
-  next();
+
+/**
+ * updates a table when it is seated
+ */
+async function update(request, response) {
+  await service.occupy(
+    response.locals.table.table_id,
+    response.locals.reservation.reservation_id
+  );
+  await service.updateReservation(
+    response.locals.reservation.reservation_id,
+    "seated"
+  );
+
+  response.status(200).json({ data: { status: "seated" } });
 }
+
+
+/** finishes a table */
+async function destroy(request, response) {
+  await service.updateReservation(
+    response.locals.table.reservation_id,
+    "finished"
+  );
+  await service.free(response.locals.table.table_id);
+  response.status(200).json({ data: { status: "finished" } });
+}
+
 
 module.exports = {
   list: asyncErrorBoundary(list),
-  read: [asyncErrorBoundary(tableExists), asyncErrorBoundary(read)],
   create: [
-    hasProperties("table_name"),
-    hasProperties("capacity"),
-    asyncErrorBoundary(validCapacity),
-    asyncErrorBoundary(validTableName),
+    asyncErrorBoundary(validateData),
+    asyncErrorBoundary(validateBody),
     asyncErrorBoundary(create),
   ],
   update: [
-    hasProperties("reservation_id"),
-    asyncErrorBoundary(reservationExists),
-    asyncErrorBoundary(tableExists),
-    asyncErrorBoundary(isSeated),
-    asyncErrorBoundary(isOccupied),
-    asyncErrorBoundary(validSeating),
-    asyncErrorBoundary(update)
+    asyncErrorBoundary(validateData),
+    asyncErrorBoundary(validateTableId),
+    asyncErrorBoundary(validateReservationId),
+    asyncErrorBoundary(validateSeat),
+    asyncErrorBoundary(update),
   ],
-  delete: [
-    asyncErrorBoundary(tableExists),
-    asyncErrorBoundary(isNotOccupied),
-    asyncErrorBoundary(destroy)
+  destroy: [
+    asyncErrorBoundary(validateTableId),
+    asyncErrorBoundary(validateSeatedTable),
+    asyncErrorBoundary(destroy),
   ],
 };

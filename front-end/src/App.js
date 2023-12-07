@@ -6,13 +6,17 @@ import Layout from "./layout/Layout";
  * Defines the root application component.
  * @returns {JSX.Element}
  */
+
+
 function App() {
   return (
-    <Switch>
+    <div>
+      <Switch>
       <Route path="/">
         <Layout />
       </Route>
     </Switch>
+    </div>
   );
 }
 
