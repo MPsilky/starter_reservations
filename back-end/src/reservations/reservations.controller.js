@@ -26,18 +26,20 @@ async function changeStatus(req, res, next) {
   const data = await service.changeStatus({ ...req.body.data, reservation_id });
   res.json({ data: data[0] });
 }
-//Validation Middleware
+
+// Validation Middleware
 async function reservationExists(req, res, next) {
   const { reservation_id } = req.params;
   const found = await service.read(reservation_id);
   if (found) {
     res.locals.reservation = found;
     return next();
-  } else
+  } else {
     next({
       status: 404,
       message: `Reservation ${reservation_id} does not exist.`,
     });
+  }
 }
 
 async function queryInput(req, res, next) {
@@ -48,11 +50,12 @@ async function queryInput(req, res, next) {
   } else if (mobile_number) {
     res.locals.reservations = await service.search(mobile_number);
     next();
-  } else
+  } else {
     next({
       status: 400,
       message: `No query was specified in the URL`,
     });
+  }
 }
 
 function validDateTime(req, res, next) {
@@ -61,30 +64,21 @@ function validDateTime(req, res, next) {
   const now = new Date();
   const [hour, minute] = reservation_time.split(":");
 
-  if (reservation_date === "not-a-date") {
+  // Ensure valid date and time
+  if (isNaN(reservation.getTime())) {
     return next({
       status: 400,
-      message: `reservation_date is not a valid date.`,
+      message: `reservation_date and reservation_time must be a valid date and time.`,
     });
   }
-  if (reservation_time === "not-a-time") {
-    return next({
-      status: 400,
-      message: `reservation_time is not a valid time.`,
-    });
-  }
-  if (reservation.getUTCDay() === 2) {
-    return next({
-      status: 400,
-      message: "The restaurant is closed on Tuesdays.",
-    });
-  }
+  // Check for future date
   if (reservation < now) {
     return next({
       status: 400,
       message: "Reservation must be made at a future date/time.",
     });
   }
+  // Check for operating hours
   if (hour < 10 || hour > 21 || (hour == 10 && minute < 30) || (hour == 21 && minute > 30)) {
     return next({
       status: 400,
@@ -96,8 +90,8 @@ function validDateTime(req, res, next) {
 
 function validPeople(req, res, next) {
   const { people } = req.body.data;
-  if (people < 1 || typeof people !== "number") {
-    next({
+  if (!Number.isInteger(people) || people < 1) {
+    return next({
       status: 400,
       message: `people must be a number greater than 0.`,
     });
@@ -108,12 +102,13 @@ function validPeople(req, res, next) {
 function validStatus(req, res, next) {
   const statuses = ["seated", "booked", "finished", "cancelled"];
   const { status } = req.body.data;
-  if (statuses.includes(status)) next();
-  else
-    next({
+  if (!statuses.includes(status)) {
+    return next({
       status: 400,
-      message: `The status cannot be ${status}, and must be "seated", "booked", "finished", or "cancelled".`,
+      message: `The status cannot be ${status}, and must be one of ${statuses.join(", ")}.`,
     });
+  }
+  next();
 }
 
 function isFinished(req, res, next) {
@@ -129,12 +124,14 @@ function isFinished(req, res, next) {
 
 function resBooked(req, res, next) {
   const { status } = req.body.data;
-  if (!status || status === "booked") next();
-  else
+  if (!status || status === "booked") {
+    next();
+  } else {
     next({
       status: 400,
       message: `New reservations cannot be '${status}', only 'booked'.`,
     });
+  }
 }
 
 module.exports = {
