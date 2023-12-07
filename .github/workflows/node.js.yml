@@ -4,6 +4,7 @@ on: [push, pull_request]
 
 jobs:
   test:
+
     runs-on: ubuntu-latest
 
     services:
@@ -34,50 +35,41 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
-      - name: Cache front-end node modules
-        id: front-end-node-cache
+      - name: Cache node modules
         uses: actions/cache@v2
+        env:
+          cache-name: cache-node-modules
         with:
-          path: front-end/node_modules
-          key: ${{ runner.os }}-front-end-${{ hashFiles('front-end/package-lock.json') }}
+          path: ~/.npm
+          key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-front-end-
+            ${{ runner.os }}-test-${{ env.cache-name }}-
+            ${{ runner.os }}-test-
+            ${{ runner.os }}-
 
-      - name: npm install in front-end
-        if: steps.front-end-node-cache.outputs.cache-hit != 'true'
-        run: cd front-end && npm install
+      - name: npm install
+        if: steps.frontend-node-cache.outputs.cache-hit != 'true'
+        run: npm install
 
-      - name: Build front-end
-        run: cd front-end && npm run build --if-present
+      - run: npm run build --if-present
 
-      - name: Test front-end
-        run: cd front-end && npm test
+      - name: Test frontend
+        run: npm run test:frontend
         env:
           DATABASE_URL_TEST: postgresql://postgres:postgres@127.0.0.1:5432
           NODE_ENV: test
 
-      - name: Archive front-end screenshots
+      - name: Archive screenshots
         uses: actions/upload-artifact@v2
         if: always()
         with:
           name: screenshots
-          path: front-end/.screenshots
+          path: |
+            front-end/.screenshots
 
-      - name: Cache back-end node modules
-        id: back-end-node-cache
-        uses: actions/cache@v2
-        with:
-          path: back-end/node_modules
-          key: ${{ runner.os }}-back-end-${{ hashFiles('back-end/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-back-end-
-
-      - name: npm install in back-end
-        if: steps.back-end-node-cache.outputs.cache-hit != 'true'
-        run: cd back-end && npm install
-
-      - name: Test back-end
-        run: cd back-end && npm test
+      - name: Test backend
+        if: always()
+        run: npm run test:backend
         env:
           DATABASE_URL_TEST: postgresql://postgres:postgres@127.0.0.1:5432
           NODE_ENV: test
