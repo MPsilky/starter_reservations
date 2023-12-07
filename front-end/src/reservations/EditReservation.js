@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useHistory, useParams } from "react-router";
 import ErrorAlert from "../layout/ErrorAlert";
-import { readReservation, updateReservation } from "../utils/api";
+import { readReservation, updateReservationStatus } from "../utils/api";
 import formatReservationTime from "../utils/format-reservation-time";
 import ReservationForm from "./ReservationForm";
 import validateDate from "./validateDate";
@@ -25,7 +25,7 @@ export default function EditRes({ reservations, setReservations }) {
     const abortController = new AbortController();
     setErrorAlerts([]);
     if (validateDate(updatedRes, setErrorAlerts)) {
-      updateReservation(
+      updateReservationStatus(
         formatReservationTime(updatedRes),
         abortController.signal
       )

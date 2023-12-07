@@ -12,7 +12,7 @@ import EditReservation from "../reservations/EditReservation";
 import SeatReservation from "../reservations/SeatReservation";
 import Search from "../search/Search";
 import NewTable from "../tables/NewTable";
-import { changeReservationStatus, listReservations, listTables } from "../utils/api";
+import { updateReservationStatus, listReservations, listTables } from "../utils/api";
 import { today } from "../utils/date-time";
 import useQuery from "../utils/useQuery";
 import NotFound from "./NotFound";
@@ -63,7 +63,7 @@ function Routes() {
       "Do you want to cancel this reservation? \n \n This cannot be undone."
     );
     if (result)
-      changeReservationStatus(
+      updateReservationStatus(
         reservation_id,
         "cancelled",
         abortController.signal
