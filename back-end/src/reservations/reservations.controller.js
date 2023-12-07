@@ -85,6 +85,13 @@ function validDateTime(req, res, next) {
       message: `Your reservation time must be between 10:30 AM and 9:30 PM`,
     });
   }
+  // Check if the day is Tuesday (Day 2 in JavaScript Date)
+  if (reservation.getUTCDay() === 2) {
+    return next({
+      status: 400,
+      message: "The restaurant is closed on Tuesdays.",
+    });
+  }
   return next();
 }
 
