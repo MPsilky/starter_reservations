@@ -44,7 +44,7 @@
     "test:8:backend": "npm run test:8 --prefix ./back-end",
     "test:e2e": "npm run test:e2e --prefix ./front-end",
     "test:frontend:watch": "npm test --prefix ./front-end",
-    "pretest": "node ./back-end/pre_test_setup.js"
+    "pretest": "node ./back-end/test/drop-database.js"
   },
   "keywords": [],
   "author": "Thinkful, Inc.",
