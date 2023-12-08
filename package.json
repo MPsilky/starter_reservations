@@ -7,7 +7,7 @@
     "type": "git",
     "url": "https://github.com/Thinkful-Ed/starter-restaurant-reservation"
   },
-  "scripts": {
+ "scripts": {
     "build": "npm -prefix front-end run build",
     "preinstall": "cd ./back-end && npm install",
     "install": "cd ./front-end && npm install",
@@ -44,7 +44,7 @@
     "test:8:backend": "npm run test:8 --prefix ./back-end",
     "test:e2e": "npm run test:e2e --prefix ./front-end",
     "test:frontend:watch": "npm test --prefix ./front-end"
-  },
+   },
   "keywords": [],
   "author": "Thinkful, Inc.",
   "license": "UNLICENSED"
