@@ -1,112 +1,125 @@
 import React, { useState } from "react";
 import ErrorAlert from "../layout/ErrorAlert";
-import { listReservations } from "../utils/api";
-import ReservationRow from "../dashboard/ReservationRow";
+import { listReservations, cancelReservation } from "../utils/api";
+import ListReservations from "../reservations/ListReservations";
 
-/**
- * Search component allows the user to search for a specific reservation
- * by entering in a phone number into the search field and display all
- * reservation(s) under the give phone number
- */
 export default function Search() {
-  const [mobileNumber, setMobileNumber] = useState("");
-  const [reservations, setReservations] = useState([]);
-  const [error, setError] = useState(null);
+  const initialFormState = {
+    mobile_number: "",
+  };
 
-  /**
-   * updates the state of mobileNumber when the user makes any changes to it
-   */
-  function handleChange({ target }) {
-    setMobileNumber(target.value);
-  }
+  const [foundReservations, setFoundReservations] = useState([]);
+  const [formData, setFormData] = useState({ ...initialFormState });
+  const [foundReservationsError, setFoundReservationsError] = useState(null);
+  const [displayResults, setDisplayResults] = useState(false);
 
-  /** makes a get request to list all reservations under the given mobileNumber when the "submit" button is clicked */
-  function handleSubmit(event) {
-    event.preventDefault();
+  const handleChange = ({ target }) => {
+    let value = target.value;
+
+    setFormData({
+      ...formData,
+      [target.name]: value,
+    });
+  };
+
+  async function findReservations() {
     const abortController = new AbortController();
-    setError(null);
-
-    listReservations({ mobile_number: mobileNumber }, abortController.signal)
-      .then(setReservations)
-      .catch(setError);
-
+    try {
+      const { mobile_number } = formData;
+      const data = await listReservations(
+        { mobile_number },
+        abortController.signal
+      );
+      setFoundReservations([...data]);
+    } catch (error) {
+      setFoundReservationsError(error);
+    }
     return () => abortController.abort();
   }
 
-  /** returns all reservation(s), if any */
-  const searchResultsJSX = () => {
-    return reservations.length > 0 ? (
-      reservations.map((reservation) => (
-        <ReservationRow
-          key={reservation.reservation_id}
-          reservation={reservation}
-        />
-      ))
-    ) : (
-      <tr>
-        <td className="text-light">No reservations found</td>
-      </tr>
-    );
+  const handleFind = () => {
+    findReservations();
+    setDisplayResults(true);
+  };
+
+  const handleCancel = (reservation_id) => {
+    const abortController = new AbortController();
+    async function cancel() {
+      try {
+        await cancelReservation(reservation_id, abortController.signal);
+      } catch (error) {
+        setFoundReservationsError(error);
+      }
+    }
+    cancel().then(handleFind);
+    return () => abortController.abort();
   };
 
   return (
-    <div
-      className="w-80 ml-2 pr-4 mr-4 pt-4"
-    >
-      <h1 className="font-weight-bold d-flex justify-content-center mt-4 mb-4 pb-4">
-        Search
-      </h1>
-      <form>
-        <ErrorAlert error={error} />
-        <div className="input-group w-50">
-          <input
-            className="form-control mr-2 border-dark rounded"
-            name="mobile_number"
-            id="mobile_number"
-            type="tel"
-            placeholder="Enter a customer's phone number"
-            onChange={handleChange}
-            value={FormData.mobile_number}
-            required
-          />
-          <button
-            className="btn-xs btn-outline-0 btn-outline-dark rounded px-2 pb-1"
-            type="submit"
-            onClick={handleSubmit}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              fill="currentColor"
-              className="bi bi-search"
-              viewBox="0 0 16 16"
+    <>
+      {displayResults ? (
+        <div className="row">
+          <h1>Found Resevations</h1>
+          <div>
+            <button
+              type="button"
+              className="btn btn-primary ml-3 mt-2"
+              onClick={() => {
+                setFoundReservations([]);
+                setFormData({ ...initialFormState });
+                setDisplayResults(false);
+              }}
             >
-              <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z" />
-            </svg>
-          </button>
+              New Search
+            </button>
+          </div>
         </div>
-      </form>
-
-      <table className="table table-hover mt-4">
-        <thead className="thead-dark">
-          <tr className="text-center">
-            <th scope="col">ID</th>
-            <th scope="col text-center">First Name</th>
-            <th scope="col text-center">Last Name</th>
-            <th scope="col text-center">Mobile Number</th>
-            <th scope="col">Date</th>
-            <th scope="col">Time</th>
-            <th scope="col">People</th>
-            <th scope="col">Status</th>
-            <th scope="col">Edit</th>
-            <th scope="col">Cancel</th>
-            <th scope="col">Seat</th>
-          </tr>
-        </thead>
-
-        <tbody>{searchResultsJSX()}</tbody>
-      </table>
-    </div>
+      ) : (
+        <h1>Search</h1>
+      )}
+      <ErrorAlert error={foundReservationsError} />
+      {displayResults ? (
+        <ListReservations
+          reservations={foundReservations}
+          handleCancel={handleCancel}
+        />
+      ) : (
+        <div className="row">
+          <div className="col">
+              <form id="searchForm">
+                <div className="form-row">
+                  <div className="col">
+                    <label className="form-label" htmlFor="mobile_number">
+                      Mobile Number
+                    </label>
+                    <input
+                      id="mobile_number"
+                      name="mobile_number"
+                      type="tel"
+                      pattern="[0-9]{3}-[0-9]{3}-[0-9]{4}"
+                      className="form-control"
+                      placeholder="Enter a customer's phone number"
+                      required
+                      onChange={handleChange}
+                      value={formData.mobile_number}
+                    />
+                  </div>
+                </div>
+              </form>
+          </div>
+          <div className="col">
+            <p className="form-label pb-3"></p>
+            <button
+              form="searchForm"
+              type="submit"
+              className="btn btn-primary"
+              onClick={handleFind}
+            >
+              Find
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

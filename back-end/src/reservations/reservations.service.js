@@ -2,60 +2,48 @@ const knex = require("../db/connection");
 
 const tableName = "reservations";
 
+function list(date) {
+  return knex(tableName)
+    .select("*")
+    .where({ reservation_date: date })
+    .whereNot({ status: "finished" })
+    .orderBy("reservation_time");
+}
 
-/** creates a new reservation (row) */
+function read(reservation_id) {
+  return knex(tableName).where({ reservation_id }).first();
+}
+
 function create(reservation) {
   return knex(tableName)
     .insert(reservation)
-    .returning("*");
+    .returning("*")
+    .then((created) => created[0]);
 }
 
-/** reads the data (row) with the given 'reservation_id'. */
-function read(reservation_id) {
+function search(mobile_number) {
   return knex(tableName)
-    .select("*")
-    .where({ reservation_id: reservation_id })
-    .first();
+    .whereRaw("translate(mobile_number, '() -', '') like ?", `%${mobile_number.replace(/\D/g, "")}%`)
+    .orderBy("reservation_date");
 }
 
-/** updates reservation with the given reservation_id. */
-function update(reservation_id, status) {
+function update(reservation) {
   return knex(tableName)
-    .where({ reservation_id: reservation_id })
-    .update({ status: status });
+    .where({ reservation_id: reservation.reservation_id })
+    .update(reservation, "*");
 }
 
-/** edits reservation with the given reservation_id. */
-function edit(reservation_id, reservation) {
+function changeStatus(reservation) {
   return knex(tableName)
-    .where({ reservation_id: reservation_id })
-    .update({ ...reservation })
-    .returning("*");
-}
-
-/** lists all reservations with the given date or mobile number. */
-function list(date, mobile_number) {
-  if (date) {
-    return knex(tableName)
-      .select("*")
-      .where({ reservation_date: date })
-      .orderBy("reservation_time", "asc");
-  }
-
-  if (mobile_number) {
-    return knex(tableName)
-      .select("*")
-      .where("mobile_number", "like", `${mobile_number}%`);
-  }
-
-  return knex(tableName)
-    .select("*");
+    .where({ reservation_id: reservation.reservation_id })
+    .update({ status: reservation.status }, "*");
 }
 
 module.exports = {
-  list,
   create,
+  list,
   read,
   update,
-  edit,
+  changeStatus,
+  search,
 };

@@ -1,8 +1,10 @@
 import React from "react";
+
 import { Link } from "react-router-dom";
 
 /**
  * Defines the menu for this application.
+ *
  * @returns {JSX.Element}
  */
 
@@ -15,11 +17,11 @@ function Menu() {
           to="/"
         >
           <div className="sidebar-brand-text mx-3">
-            <span>Periodic Tables</span>
+            <h1>Periodic Tables</h1>
           </div>
         </Link>
         <hr className="sidebar-divider my-0" />
-        <ul className="nav navbar-nav text-light" id="accordionSidebar">
+        <ul className="nav navbar-nav text-white" id="accordionSidebar">
           <li className="nav-item">
             <Link className="nav-link" to="/dashboard">
               <span className="oi oi-dashboard" />

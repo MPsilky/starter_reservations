@@ -79,7 +79,7 @@ export async function createReservation(reservation, signal) {
   return await fetchJson(url, options, {});
 }
 
-export async function updateReservationStatus(data, signal) {
+export async function updateReservation(data, signal) {
   const url = new URL(
     `${API_BASE_URL}/reservations/${data.data.reservation_id}`
   );
